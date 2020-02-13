@@ -7,9 +7,9 @@ aws s3api 	--profile "$PROFILE" create-bucket \
 			--region "$REGION"
 
 # Copy Swagger file to S3 to be able to transform its content for "deploying" it to API Gateway
-#aws s3 	--profile "$PROFILE" \
-#		--region "$REGION" \
-#		cp swagger.yaml s3://"$S3_BUCKET"/swagger.yaml
+aws s3 	--profile "$PROFILE" \
+		--region "$REGION" \
+		cp swagger.yaml s3://"$S3_BUCKET"/swagger.yaml
 
 sam package --profile "$PROFILE" \
 			--template-file "$INPUT_FILE" \
@@ -24,7 +24,7 @@ sam deploy 	--profile "$PROFILE" \
 				StageName="$STAGE_NAME" \
 				DeploymentS3BucketName="$S3_BUCKET" \
 				AppName="$APP_NAME" \
-			--capabilities CAPABILITY_IAM CAPABILITY_AUTO_EXPAND
+			--capabilities CAPABILITY_IAM
 
 # shellcheck disable=SC2155
 export API_GATEWAY_URL=$( \

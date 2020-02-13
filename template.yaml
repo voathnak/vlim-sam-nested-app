@@ -5,33 +5,108 @@ Description: >
 
   Sample SAM Template for vlim-sam-nested-app
 
-# More info about Globals: https://github.com/awslabs/serverless-application-model/blob/master/docs/globals.rst
+
+
 Globals:
   Function:
     Timeout: 3
 
+
+
+Parameters:
+  AppName:
+    Type: String
+    Description: The name of the APP
+  StageName:
+    Type: String
+    Description: The name of the stage, e.g. "dev", "preprod", "prod"
+    Default: dev
+
+
+
 Resources:
+  ApiGatewayRestApi:
+
+    Type: AWS::Serverless::Api
+    Properties:
+      Name:
+        Fn::Sub: ${AppName}-${StageName}-ApiGatewayRestApi
+      MethodSettings:
+        - LoggingLevel: INFO
+          ResourcePath: '/*' # allows for logging on any resource
+          HttpMethod: '*' # allows for logging on any method
+      StageName:
+        Ref: StageName
+
+  ApiGatewayResourceRoot:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId:
+        Ref: ApiGatewayRestApi
+      ParentId:
+        Fn::GetAtt: ApiGatewayRestApi.RootResourceId
+      PathPart: hello
+
+  ApiGatewayResourceChild:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId:
+        Ref: ApiGatewayRestApi
+      ParentId:
+        Fn::GetAtt: ApiGatewayRestApi.RootResourceId
+      PathPart: child
+
   HelloWorldFunction:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: hello_world/
       Handler: app.lambda_handler
-      Runtime: python2.7
+      Runtime: python3.7
       Events:
         HelloWorld:
           Type: Api
           Properties:
+            RestApiId:
+              Ref: ApiGatewayRestApi
             Path: /hello
             Method: get
       Layers:
         - arn:aws:lambda:us-east-1:444536552593:layer:RequestLibrary:22
+
+
+  VLIMSamChildNestedApp:
+    Type: AWS::Serverless::Application
+    Properties:
+      Location: applications/vlim-sam-child-nested-app/template.yaml
+      Parameters:
+        # Optional parameter that can have default value overridden
+        # ParameterName1: 15 # Uncomment to override default value
+        # Required parameter that needs value to be provided
+        AppName: !Ref AppName
+        StageName: !Ref StageName
+        RequestLibraryArn: arn:aws:lambda:us-east-1:444536552593:layer:RequestLibrary:22
+
+
+
 Outputs:
-  HelloWorldApi:
-    Description: "API Gateway endpoint URL for Prod stage for Hello World function"
-    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/hello/"
-  HelloWorldFunction:
-    Description: "Hello World Lambda Function ARN"
-    Value: !GetAtt HelloWorldFunction.Arn
-  HelloWorldFunctionIamRole:
-    Description: "Implicit IAM Role created for Hello World function"
-    Value: !GetAtt HelloWorldFunctionRole.Arn
+  ApiUrl:
+    Value:
+      Fn::Join:
+        - ""
+        - - "https://"
+          - Ref: ApiGatewayRestApi
+          - Fn::Sub: ".execute-api.${AWS::Region}.amazonaws.com/${StageName}"
+
+  RestApiId:
+    Description: ApiGateway RestApi Id
+    Value:
+      Ref: ApiGatewayRestApi
+    Export:
+      Name: !Sub "${AppName}-${StageName}-RestApiId"
+
+  RootResourceId:
+    Description: ApiGateway RestApi Root Resource Id
+    Value:
+      Fn::GetAtt: ApiGatewayRestApi.RootResourceId
+    Export:
+      Name: !Sub "${AppName}-${StageName}-RootResourceId"

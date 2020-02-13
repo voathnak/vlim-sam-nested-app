@@ -1,0 +1,68 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  vlim-sam-child-nested-app
+
+  Sample SAM Template for vlim-sam-child-nested-app
+
+Parameters:
+#  RestApi:
+#    Type: String
+
+  AppName:
+    Type: String
+    Description: The name of the APP
+  StageName:
+    Type: String
+    Description: The name of the stage, e.g. "dev", "preprod", "prod"
+  RequestLibraryArn:
+    Type: String
+
+
+
+Globals:
+  Function:
+    Timeout: 3
+
+Resources:
+  ChildApiGatewayRestApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      Name:
+        Fn::Sub: ${AppName}-${StageName}-ChildApiGatewayRestApi
+      MethodSettings:
+        - LoggingLevel: INFO
+          ResourcePath: '/*' # allows for logging on any resource
+          HttpMethod: '*' # allows for logging on any method
+      StageName:
+        Ref: StageName
+
+
+
+  HelloWorldChildFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: hello_world/
+      Handler: app.lambda_handler
+      Runtime: python3.7
+      Events:
+        HelloWorldChild:
+          Type: Api
+          Properties:
+            RestApiId:
+              Ref: ChildApiGatewayRestApi
+            Path: /child
+            Method: get
+      Layers:
+        - !Ref RequestLibraryArn
+
+Outputs:
+  ApiUrl:
+    Value:
+      Fn::Join:
+        - ""
+        - - "https://"
+          - Ref: ChildApiGatewayRestApi
+          - Fn::Sub: ".execute-api.${AWS::Region}.amazonaws.com/${StageName}"
+
+
